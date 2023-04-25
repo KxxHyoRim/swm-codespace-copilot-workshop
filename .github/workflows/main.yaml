@@ -1,0 +1,49 @@
+name: Development
+
+on:
+# add a trigger for the push event
+  push:
+    branches:
+      - main
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      # add a step to install .NET SDK 7
+      - name: Install .NET SDK 7
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 7.x
+      # add a step to restore NuGet packages
+      - name: Restore NuGet packages
+        run: dotnet restore
+      # add a step to build the solution
+      - name: Build the solution
+        run: dotnet build --configuration Release
+      # add a step to test the solution
+      - name: Test the solution
+        run: dotnet test --configuration Release
+      # add a step to publish src/WebApi
+      - name: Publish src/WebApi
+        run: dotnet publish src/WebApi --configuration Release --output ./publish
+      # add a step to zip the publish folder
+      - name: Zip the publish folder
+        run: |
+          pushd publish
+          zip -r publish.zip .
+          popd
+      # add a step to login to Azure
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      # add a step to deploy the artifact using Azure CLI
+      - name: Deploy the artifact using Azure CLI
+        run: |
+          az webapp deployment source config-zip \
+            --resource-group myResourceGroup \
+            --name "appsvc-${{ secrets.AZURE_ENV_NAME }}" \
+            --src publish/publish.zip
